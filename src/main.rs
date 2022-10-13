@@ -8,11 +8,13 @@ use serde::Serialize;
 use capnpc::schema_capnp::value;
 use glob::glob;
 use clap::Parser;
+use indexmap::IndexMap;
 
 #[derive(Serialize)]
 struct Field {
 	name: String,
-	annotations: HashMap<String, String>,
+	#[serde(with = "indexmap::serde_seq")]
+	annotations: IndexMap<String, String>
 }
 
 #[derive(Serialize)]
@@ -102,6 +104,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 			let node_name = node.get_display_name()?;
 			let prefix_len = node.get_display_name_prefix_length()  as usize;
 			let annotation_name = node_name[prefix_len..].to_string();
+
 			let id = node.get_id();
 			annotation_names.insert(id.to_string(), annotation_name);
 		}
@@ -125,7 +128,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 					println!("	field: {field_name}");
 					results.structs[idx].fields.push(
-						Field { name: field_name, annotations: HashMap::new() }
+						Field { name: field_name, annotations: IndexMap::new() }
 					);
 
 					let annotations = field.get_annotations()?;
@@ -154,7 +157,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 					println!("	enumerant: {enumerant_name}");
 					results.enums[idx].enumerants.push(
-						Field { name: enumerant_name, annotations: HashMap::new() }
+						Field { name: enumerant_name, annotations: IndexMap::new() }
 					);
 
 					let annotations = enumerant.get_annotations()?;
@@ -183,7 +186,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 					println!("	method: {method_name}");
 					results.interfaces[idx].methods.push(
-						Field { name: method_name, annotations: HashMap::new() }
+						Field { name: method_name, annotations: IndexMap::new() }
 					);
 
 					let annotations = method.get_annotations()?;
