@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use capnp::serialize;
@@ -11,7 +12,7 @@ use clap::Parser;
 #[derive(Serialize)]
 struct Field {
 	name: String,
-	annotations: Vec<String>
+	annotations: HashMap<String, String>,
 }
 
 #[derive(Serialize)]
@@ -93,6 +94,18 @@ fn main() -> Result<(), Box<dyn Error>> {
 		interfaces: vec![],
 		unk: vec![]
 	};
+	let mut annotation_names: HashMap<String, String> = HashMap::new();
+
+	// initial pass to grab annotation names
+	for node in gen.request.get_nodes()?.iter() {
+		if let WhichReader::Annotation(_) = node.which()? {
+			let node_name = node.get_display_name()?;
+			let prefix_len = node.get_display_name_prefix_length()  as usize;
+			let annotation_name = node_name[prefix_len..].to_string();
+			let id = node.get_id();
+			annotation_names.insert(id.to_string(), annotation_name);
+		}
+	}
 
 	for node in gen.request.get_nodes()?.iter() {
 		let node_name = node.get_display_name()?.to_string();
@@ -112,13 +125,17 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 					println!("	field: {field_name}");
 					results.structs[idx].fields.push(
-						Field { name: field_name, annotations: vec![] }
+						Field { name: field_name, annotations: HashMap::new() }
 					);
 
 					let annotations = field.get_annotations()?;
 					for annotation in annotations.iter() {
 						if let value::Text(t) = annotation.get_value()?.which()? {
-							results.structs[idx].fields[i].annotations.push(t?.parse().unwrap());
+							let id = annotation.get_id();
+							let name = annotation_names.get(&id.to_string()).unwrap();
+							let value = t?.parse().unwrap();
+
+							results.structs[idx].fields[i].annotations.insert(name.to_string(), value);
 						}
 					}
 				}
@@ -137,13 +154,17 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 					println!("	enumerant: {enumerant_name}");
 					results.enums[idx].enumerants.push(
-						Field { name: enumerant_name, annotations: vec![] }
+						Field { name: enumerant_name, annotations: HashMap::new() }
 					);
 
 					let annotations = enumerant.get_annotations()?;
 					for annotation in annotations.iter() {
 						if let value::Text(t) = annotation.get_value()?.which()? {
-							results.enums[idx].enumerants[i].annotations.push(t?.parse().unwrap());
+							let id = annotation.get_id();
+							let name = annotation_names.get(&id.to_string()).unwrap();
+							let value = t?.parse().unwrap();
+
+							results.enums[idx].enumerants[i].annotations.insert(name.to_string(), value);
 						}
 					}
 				}
@@ -162,13 +183,17 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 					println!("	method: {method_name}");
 					results.interfaces[idx].methods.push(
-						Field { name: method_name, annotations: vec![] }
+						Field { name: method_name, annotations: HashMap::new() }
 					);
 
 					let annotations = method.get_annotations()?;
 					for annotation in annotations.iter() {
 						if let value::Text(t) = annotation.get_value()?.which()? {
-							results.interfaces[idx].methods[i].annotations.push(t?.parse().unwrap());
+							let id = annotation.get_id();
+							let name = annotation_names.get(&id.to_string()).unwrap();
+							let value = t?.parse().unwrap();
+
+							results.interfaces[idx].methods[i].annotations.insert(name.to_string(), value);
 						}
 					}
 				}
@@ -179,7 +204,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 	}
 
 	let json = serde_json::to_string_pretty(&results).unwrap();
+
 	fs::write(args.output, json)?;
 	Ok(())
 }
-
